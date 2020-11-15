@@ -1,4 +1,3 @@
-library(depmix)
 library(quantmod)
 library(depmixS4)
 library(parallel)
