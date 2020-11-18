@@ -1,30 +1,231 @@
 ---
-title: "Report"
-author: "Jan Lennartz & Andrei Chirita"
-date: "11/15/2020"
+title: "HMM Project"
+author: "CHIRITA Andrei and LENNARTZ Jan"
+date: "11/18/2020"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+\newpage
+\tableofcontents
+\newpage
+
+# Simulated data
+
+In this part we will work on simulated data in orderto illustrate the statistical models work. We will generate data from Gaussian distributions representing "bullish" or "bearish" markets and test how the model is faring in estimating in wich of the states the market is.
+
+## Installing packages and preparing the simulation
+
+
+In this stage we install the packages that will be used and set the main coordinates of the simulation. We will also set the seed to make sure that the experiment will be replicable.
+
+```{r,echo=TRUE,results='hide',message=FALSE}
+library(depmix) # for fitting HMM functions
+library(quantmod) # for real financial data
+library(depmixS4) # for the depmix function
+library(parallel) # for parralel computations
+set.seed(1) # we set the seed 
+Nklower <- 50
+Nkupper <- 150
+bullmean <- 0.1
+bullvar <- 0.1
+bearmean <- -0.05
+bearvar <- 0.2
 ```
 
-## R Markdown
+## Simulating the time periods of the Markov Chain
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+In this section we simulate the periods of the Markov Chain by putting together 5 different periods.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+```{r}
+days <- replicate(5, sample(Nklower :Nkupper, 1)) # we create the daily observations
 
-```{r cars}
-summary(cars)
+marketbull1 <- rnorm( days[1], bullmean, bullvar )
+marketbear2 <- rnorm( days[2], bearmean, bearvar )
+marketbull3 <- rnorm( days[3], bullmean, bullvar )
+marketbear4 <- rnorm( days[4], bearmean, bearvar )
+marketbull5 <- rnorm( days[5], bullmean, bullvar )
+# we store the true regimes and the returns
+trueregimes <-c( rep(1,days[1]), rep(2,days[2]), rep(1,days[3]), rep(2,days[4]), rep(1,days[5]))
+returns <-c( marketbull1, marketbear2, marketbull3, marketbear4, marketbull5)
 ```
 
-## Including Plots
+In the code above after simulating the five time periods we pasted them together in the returns variable. We also created a variable thet represents the true states of the Markpv Chain. The result was the following sequence of returns that resembles a plot of returns that exist on some real financial markets around the world:
 
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+```{r,echo=FALSE}
+plot(returns, type="l", ylab="Returns")
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+
+
+## Creating the Hidden Markov Model
+
+In this sub-section we will create and fit a HMM model, plot the posterior probabilities and compare them to the true states of the model.
+
+```{r,echo=TRUE,results='hide'}
+hmm <- depmix(returns ~ 1, family = gaussian(), nstates = 2,data=data.frame(returns=returns)) # we create the HMM model
+hmmfit <- fit(hmm, verbose = FALSE) # we fit the model
+postprobs <- posterior(hmmfit) # we compute the posterior probabilities
+```
+As can be seen from the output above the model converged after 22 iterations. The plot bellow shows that the model estimated quite well the state of the market. We must also say that the model is labelling the states in a different way that they were labeled in the "trueregimes" data so we had to re-label them.
+
+```{r,echo=FALSE}
+# re-labeling of the states
+postprobs$state<-postprobs$state+2 
+postprobs$state[which(postprobs$state==4)]<-1
+postprobs$state[which(postprobs$state==3)]<-2
+# plotting the true and estimated states and their probabilities
+layout(1:3)
+plot(trueregimes,type='s',main='True Regimes',ylab='Regime')
+plot(postprobs$state, type='s', main='Estimated Regimes', ylab='Regime')
+matplot(postprobs[, -1], type='l', main='Regime Posterior Probabilities',ylab='Probability')
+legend(x='topright', c('Bull','Bear'), fill=1:2, bty='n')
+```
+
+In the end we will create a confussion matrix to see the percentage of observations wrongly classified by the model:
+```{r}
+table(postprobs$state,trueregimes) # create a confussion matrix
+```
+
+The confusion matrix shows that most observations were classified correctly with only a few exception.
+
+
+
+
+
+
+
+
+
+
+# Real Data
+
+The same procedure is now applied in a real data situation. The data in question is the S&P500 (GSPC) data and the IWM data set. Both data sets start from the year 2004. The S&P500 is a stock market index, representing the top 500 companies in the U.S. stock exchange. The IWM data contains stock exchange data of a financial planning company (Intentional Wealth Management). The goal is to identify the underlying processes in order to tell when there is a change of the regime. Just like before it is assumed that there is a hidden markov chain present. Therefore, a Hidden Markov Model will be fitted and evaluated. It is not known how many states are present and there is no "ground truth", i.e. we can not tell if we detected the correct regime. 
+
+### Obtaining the data
+
+The data is retrieved with the *quantmod* library.
+```{r,message=FALSE}
+getSymbols("^GSPC", from="2004-01-01" )
+getSymbols("IWM", from="2004-01-01" )
+```
+
+ 
+
+### Returns
+
+ 
+
+Before working with the data, the returns need to be computed because they are the observed variable we want to use to find the hidden state $M$. The returns can be calculated from the closing values of the stock exchange per day by the following formula: $\frac{Close_i-Close_{i-1}}{Close_{i-1}} = Return_i$. This means the return of the first day has to be skipped. If we visualize the returns we obtain the following plot. 
+
+ 
+
+```{r}
+# GSPC Returns
+Close_GSPC<-GSPC$GSPC.Close
+Returns<-vector()
+for( i in 2:length(Close_GSPC)){
+  Returns[i]<-(as.numeric(Close_GSPC[i])-as.numeric(Close_GSPC[i-1]))/as.numeric(Close_GSPC[i-1])
+}
+Close_GSPC$Returns<-Returns
+
+# IWM Returns
+Close_IWM<-IWM$IWM.Close
+Returns<-vector()
+for( i in 2:length(Close_IWM)){
+  Returns[i]<-(as.numeric(Close_IWM[i])-as.numeric(Close_IWM[i-1]))/as.numeric(Close_IWM[i-1])
+}
+Close_IWM$Returns<-Returns
+par(mfrow=c(2,1))
+plot.xts(Close_GSPC$Returns)
+plot.xts(Close_IWM$Returns)
+```
+
+ 
+
+One can clearly see the financial crisis in 2008 and at the beginning of of 2020. Both data sets show the same patterns for the high peaks.
+
+ 
+
+### Fitting HMMs
+
+ 
+
+Now the EM-Algrithm will be used to fit different $M$-state Hidden Markov Models to each data set. We will consider only Markov Chains with 2 and 3 states. We can then plot the estimates hidden states and the posterior proabilities.
+
+ 
+
+```{r}
+# GSPC
+# Fit the models with 2 and 3 states
+hmm_GSPC <- lapply(2:3,function(i){depmix(Returns ~ 1, family = gaussian(), nstates = i,data=data.frame(Close_GSPC$Returns))})
+hmmfit_GSPC <- lapply(1:2,function(i){fit(hmm_GSPC[[i]], verbose = FALSE)})
+postprobs_GSPC <- lapply(1:2,function(i){posterior(hmmfit_GSPC[[i]])})
+par(mfrow=c(2,2))
+for(i in 1:2){
+  plot(postprobs_GSPC[[i]]$state, type='s', main=paste('Estimated regimes GSPC for ',i+1," variables"), ylab='Regime')
+  matplot(postprobs_GSPC[[i]][, -1], type='l', main=paste('Posterior Probabilities GSPC for ',i," variables"),ylab='Probability')
+  legend(x='bottomright', legend=c(1:(i+1)), fill=1:(i+1), bty='n')
+}
+
+# IWM
+# Fit the models with 2 and 3 states
+hmm_IWM <- lapply(2:3,function(i){depmix(Returns ~ 1, family = gaussian(), nstates = i,data=data.frame(Close_IWM$Returns))})
+hmmfit_IWM <- lapply(1:2,function(i){fit(hmm_IWM[[i]], verbose = FALSE)})
+postprobs <- lapply(1:2,function(i){posterior(hmmfit_IWM[[i]])})
+par(mfrow=c(2,2))
+for(i in 1:2){
+  plot(postprobs[[i]]$state, type='s', main=paste('Estimated regimes IWM for ',i+1," variables"), ylab='Regime')
+  matplot(postprobs[[i]][, -1], type='l', main=paste('Posterior Probabilities IWM for ',i," variables"),ylab='Probability')
+  legend(x='bottomright', legend=c(1:(i+1)), fill=1:(i+1), bty='n')
+}
+```
+
+ 
+
+### Selecting the best model
+
+ 
+
+To find the best model we can look at the AIC or BIC. These are criteria which take the likelihood performance into account but penalize the number of parameters in the model. Thus, it is expected to select a model that is fitting the data well, while it is not using too many parameters. The lower each of the criteria are the better is the model. The AIC and BIC can be obtaine like this:
+
+ 
+
+```{r}
+# GSPC
+# AIC
+suppressWarnings(sapply(hmmfit_GSPC, AIC))
+# BIC
+suppressWarnings(sapply(hmmfit_GSPC, BIC))
+
+# IWM
+# AIC
+suppressWarnings(sapply(hmmfit_IWM, AIC))
+# BIC
+suppressWarnings(sapply(hmmfit_IWM, BIC))
+```
+
+ 
+
+For both data sets the best model according to AIC and BIC is the 3 states model. However, the models are quite close. 
+
+### Interpreting the results of the model
+
+
+Based on AIC, BIC criterions we decided to keep the model with three states but we will also analise the models from the point of view of interpretability.
+
+```{r,echo=FALSE}
+par(mfrow=c(2,1))
+plot(postprobs_GSPC[[2]]$state, type='s', main=paste('Estimated regimes GSPC for ',3," variables"), ylab='Regime')
+plot(postprobs[[2]]$state, type='s', main=paste('Estimated regimes IWM for a model with ',3," variables"), ylab='Regime')
+```
+
+As can be seen from the plots the model estimates that there are mainly two states with an intermediary third state happening very rarely, this may point out to the fact that in fact there are only two main market states with transition periods between them that combine some of the characteristics of both states. We must also point out to the fact that in the second part of the covered time period the model changes between states more often than in the first part which may be due to the higher market volatility of that period related to first the subprime crisis and then to the slow and sometimes shaky recovery that followed the 2008 crisis (one can recall the 2009-2010 euro crisis and the subsequent shoks related to the negociations in regard to the fate of the debt of Greece). Fo the IWM dataset the three states are a liitle bit more balanced but it is clear that most observations have labels "2" and "3" with a smaller number of observations for the first label. 
+
+```{r,echo=FALSE}
+par(mfrow=c(2,1))
+plot(postprobs_GSPC[[1]]$state, type='s', main=paste('Estimated regimes GSPC for ',2," variables"), ylab='Regime')
+plot(postprobs[[1]]$state, type='s', main=paste('Estimated regimes IWM for a model with ',2," variables"), ylab='Regime')
+```
+The plot above shows the predictions of the 2 states Hidden Markov Chain model, the after a period of relative calm the model changes between states faster and with a higher frequency, after that there is another period of calm related to the years around 2015 that can be explained by the improving of the economic conditions and the increase in speed of the global economy.  The results are similar to both datasets (it must be noted that the labeling of the observations may differ between the two datasets so in comparing them we looked if observations that are put under one label for one dataset are put under one label fo the other dataset notwithstanding the number assigned to the label).
+
+For both datasets the two states HMM model captures better the variations of the market being better in spotting the periods of volatiliy (like the American sbprime crisis of 2007-2009 o the post 2008 european debt crisis), while the three states model captures some of those effects and has lower AIC and BIC indicators the difference of these two indicators between the 2-states model and the 3-states model is extremely low. Thus taking into account the AIC, BIC and the interpretability of the models we would recommend using the 2-states Markov Models. As results for both datasets are simillar we think that two states HMM models are better for both dataset with the remark that the three states model for the IWM data is somewhat more interpretable than its GSPC counterpart.
