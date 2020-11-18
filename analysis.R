@@ -39,7 +39,7 @@ Returns<-vector()
 for( i in 2:length(Close)){
   Returns[i]<-(as.numeric(Close[i])-as.numeric(Close[i-1]))/as.numeric(Close[i-1])
 }
-Returns forfr
+Returns
 Close$Returns<-Returns
 Close
 plot.xts(Close$Returns)
