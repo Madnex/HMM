@@ -1,4 +1,4 @@
 # Readme
 
-## Test
-This is the HMM project folder. 
+## To-Do
+Explain the EM-Algorithm
