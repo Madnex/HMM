@@ -9,6 +9,12 @@ output: pdf_document
 \tableofcontents
 \newpage
 
+# Summary
+
+In discussing the state of the stock exchanges around the world a lot of experts use the words "bull market" or "bear market", these words represent broad generalizations in regard to the trajectory of the market in a given moment but they also  point to the fact that there may exist market regimes that describe the trajectory of the stocks and that can be inferred from the market data. As these market regimes are "hidden" behind the daily market data (or more specific behind he returns) we can use a Hidden State Markov Model in order to find them and see how well they describe the data.
+
+In the following project we aim to find these hidden market regimes using HMM models applied on two market indexes, the S&P500 and the IWM dataset. On the first step of the project we fit a HMM model on simulated data in order to understand how the model works in general terms, how can we fit, read and interpret it and how to use the associated R functions. In the second step of the project we get the data, calculate the daily returns based on the closing value of one day and the closing value of the previous day (which is also the opening value of the analyzed day) and then we fit the models. In trying to get results as good as possible we select models based on a range of criteria, first statistical criteria like AIC, BIC or if the HMM model reached convergence and second interpretability criteria. At the end we discuss what model is best taking all the criteria into account and find a way of generalizing the model.
+
 # Simulated data
 
 In this part we will work on simulated data in order to illustrate how the statistical models work. We will generate data from a gaussian distributions representing "bullish" or "bearish" markets and test how the model is faring in estimating in which of the states the market it is at each time step.
