@@ -44,14 +44,15 @@ marketbull3 <- rnorm( days[3], bullmean, bullvar )
 marketbear4 <- rnorm( days[4], bearmean, bearvar )
 marketbull5 <- rnorm( days[5], bullmean, bullvar )
 # we store the true regimes and the returns
-trueregimes <-c( rep(1,days[1]), rep(2,days[2]), rep(1,days[3]), rep(2,days[4]), rep(1,days[5]))
+trueregimes <-c(rep(1,days[1]), rep(2,days[2]), rep(1,days[3]), 
+                rep(2,days[4]), rep(1,days[5]))
 returns <-c( marketbull1, marketbear2, marketbull3, marketbear4, marketbull5)
 ```
 
 In the code above after simulating the five time periods we pasted them together in the returns variable. We also created a variable that represents the true states of the Markpv Chain. The result was the following sequence of returns that resembles a plot of returns that exist on some real financial markets around the world:
 
 ```{r,echo=FALSE}
-plot(returns, type="l", ylab="Returns")
+plot(returns, type="l", ylab="Returns", main = "Returns over time")
 ```
 
 
@@ -77,16 +78,16 @@ postprobs$state[which(postprobs$state==3)]<-2
 layout(1:3)
 plot(trueregimes,type='s',main='True Regimes',ylab='Regime')
 plot(postprobs$state, type='s', main='Estimated Regimes', ylab='Regime')
-matplot(postprobs[, -1], type='l', main='Regime Posterior Probabilities',ylab='Probability')
+matplot(postprobs[, -1], type='l', main='Estimated Posterior Probabilities',ylab='Probability')
 legend(x='topright', c('Bull','Bear'), fill=1:2, bty='n')
 ```
 
 In the end we will create a confusion matrix to see the percentage of observations wrongly classified by the model:
 ```{r}
-table(postprobs$state,trueregimes) # create a confussion matrix
+table(postprobs$state,trueregimes) # create a confusion matrix
 ```
 
-The confusion matrix shows that most observations were classified correctly with only a few exception.
+The confusion matrix shows that most observations were classified correctly with only a few exceptions.
 
 
 
@@ -99,7 +100,7 @@ The same procedure is now applied in a real data situation. The data in question
 ### Obtaining the data
 
 The data is retrieved with the *quantmod* library.
-```{r,message=FALSE}
+```{r,results='hide', message=FALSE}
 getSymbols("^GSPC", from="2004-01-01" )
 getSymbols("IWM", from="2004-01-01" )
 ```
@@ -108,24 +109,28 @@ getSymbols("IWM", from="2004-01-01" )
 
 ### Returns
 
-Before working with the data, the returns need to be computed because they are the observed variable we want to use to find the hidden state $M$. The returns can be calculated from the closing values of the stock exchange per day by the following formula: $\frac{Close_i-Close_{i-1}}{Close_{i-1}} = Return_i$. This means the return of the first day has to be skipped. If we visualize the returns we obtain the following plot. 
-
- 
+Before working with the data, the returns need to be computed because they are the observed variable we want to use to find the hidden state $M$. The returns can be calculated from the closing values of the stock exchange per day by the following formula: $\frac{Close_i-Close_{i-1}}{Close_{i-1}} = Return_i$. This means the return of the first day has to be skipped.
 
 ```{r}
 # GSPC Returns
 Close_GSPC<-GSPC$GSPC.Close
 Returns<-vector()
 for( i in 2:length(Close_GSPC)){
-  Returns[i]<-(as.numeric(Close_GSPC[i])-as.numeric(Close_GSPC[i-1]))/as.numeric(Close_GSPC[i-1])
+  Returns[i]<-(as.numeric(Close_GSPC[i])-
+                 as.numeric(Close_GSPC[i-1]))/as.numeric(Close_GSPC[i-1])
 }
 Close_GSPC$Returns<-Returns
+```
 
+If we visualize the returns we obtain the following plot:
+
+```{r echo=FALSE}
 # IWM Returns
 Close_IWM<-IWM$IWM.Close
 Returns<-vector()
 for( i in 2:length(Close_IWM)){
-  Returns[i]<-(as.numeric(Close_IWM[i])-as.numeric(Close_IWM[i-1]))/as.numeric(Close_IWM[i-1])
+  Returns[i]<-(as.numeric(Close_IWM[i])-
+                 as.numeric(Close_IWM[i-1]))/as.numeric(Close_IWM[i-1])
 }
 Close_IWM$Returns<-Returns
 par(mfrow=c(2,1))
@@ -140,26 +145,34 @@ One can clearly see the financial crisis in 2008 and at the beginning of of 2020
 
 ### Fitting HMMs
 
-Now the EM-Algrithm will be used to fit different $M$-state Hidden Markov Models to each data set. We will consider only Markov Chains with two and three states. We can then plot the estimates hidden states and the posterior probabilities.
+Now the EM-Algrithm will be used to fit different $M$-state Hidden Markov Models to each data set. We will consider only Markov Chains with two and three states. The following code was used for fitting the GSPC data Analogously, the IWM data was fitted.
 
 
-```{r}
+```{r, results='hide'}
 # GSPC
 # Fit the models with 2 and 3 states
 hmm_GSPC <- lapply(2:3,function(i){depmix(Returns ~ 1, 
                                           family = gaussian(), 
-                                          nstates = i,data=data.frame(Close_GSPC$Returns))})
+                                          nstates = i,
+                                          data=data.frame(Close_GSPC$Returns))})
 hmmfit_GSPC <- lapply(1:2,function(i){fit(hmm_GSPC[[i]], verbose = FALSE)})
 postprobs_GSPC <- lapply(1:2,function(i){posterior(hmmfit_GSPC[[i]])})
+```
+
+We can then plot the estimates hidden states and the posterior probabilities.
+
+```{r echo=FALSE}
 par(mfrow=c(2,2))
 for(i in 1:2){
   plot(postprobs_GSPC[[i]]$state, type='s', 
-       main=paste('Estimated regimes GSPC for ',i+1," variables"), ylab='Regime')
+       main=paste('Est. regimes GSPC for ',i+1," variables"), ylab='Regime')
   matplot(postprobs_GSPC[[i]][, -1], type='l', 
-          main=paste('Posterior Probabilities GSPC for ',i," variables"),ylab='Probability')
+          main=paste('Post. Prob. GSPC for ',i," variables"),ylab='Probability')
   legend(x='bottomright', legend=c(1:(i+1)), fill=1:(i+1), bty='n')
 }
+```
 
+```{r echo=FALSE, results='hide'}
 # IWM
 # Fit the models with 2 and 3 states
 hmm_IWM <- lapply(2:3,function(i){depmix(Returns ~ 1, 
@@ -167,12 +180,15 @@ hmm_IWM <- lapply(2:3,function(i){depmix(Returns ~ 1,
                                          nstates = i,data=data.frame(Close_IWM$Returns))})
 hmmfit_IWM <- lapply(1:2,function(i){fit(hmm_IWM[[i]], verbose = FALSE)})
 postprobs <- lapply(1:2,function(i){posterior(hmmfit_IWM[[i]])})
+```
+
+```{r echo=FALSE}
 par(mfrow=c(2,2))
 for(i in 1:2){
   plot(postprobs[[i]]$state, type='s', 
-       main=paste('Estimated regimes IWM for ',i+1," variables"), ylab='Regime')
+       main=paste('Est. regimes IWM for ',i+1," variables"), ylab='Regime')
   matplot(postprobs[[i]][, -1], type='l',
-          main=paste('Posterior Probabilities IWM for ',i," variables"),ylab='Probability')
+          main=paste('Post. Prob. IWM for ',i," variables"),ylab='Probability')
   legend(x='bottomright', legend=c(1:(i+1)), fill=1:(i+1), bty='n')
 }
 ```
@@ -185,17 +201,22 @@ To find the best model we can look at the AIC or BIC. These are criteria which t
 
  
 ```{r}
-# GSPC
-# AIC
-suppressWarnings(sapply(hmmfit_GSPC, AIC)) # To avoid warning messages
-# BIC
-suppressWarnings(sapply(hmmfit_GSPC, BIC))
+AIC_GSPC <- suppressWarnings(sapply(hmmfit_GSPC, AIC)) # To avoid warning messages
+BIC_GSPC <- suppressWarnings(sapply(hmmfit_GSPC, BIC))
+```
 
+```{r echo=FALSE, results='hide'}
 # IWM
 # AIC
-suppressWarnings(sapply(hmmfit_IWM, AIC))
+AIC_IWM <- suppressWarnings(sapply(hmmfit_IWM, AIC))
 # BIC
-suppressWarnings(sapply(hmmfit_IWM, BIC))
+BIC_IWM <- suppressWarnings(sapply(hmmfit_IWM, BIC))
+```
+
+```{r echo=FALSE}
+out <- rbind(AIC_GSPC, BIC_GSPC, AIC_IWM, AIC_IWM)
+colnames(out) <- c("2-states", "3-states")
+out
 ```
 
  
@@ -208,9 +229,9 @@ Based on the AIC and BIC criterions we decided to keep the model with three stat
 ```{r,echo=FALSE}
 par(mfrow=c(2,1))
 plot(postprobs_GSPC[[2]]$state, type='s',
-     main=paste('Estimated regimes GSPC for ',3," variables"), ylab='Regime')
+     main=paste('Est. regimes GSPC for ',3," variables"), ylab='Regime')
 plot(postprobs[[2]]$state, type='s', 
-     main=paste('Estimated regimes IWM for a model with ',3," variables"), ylab='Regime')
+     main=paste('Est. regimes IWM for a model with ',3," variables"), ylab='Regime')
 ```
 
 As can be seen from the plots the model estimates there are mainly two states with an intermediary third state happening very rarely, this may point out to the fact that in fact there are only two main market states with transition periods between them that combine some of the characteristics of both states. We must also point out to the fact that in the second part of the covered time period the model changes between states more often than in the first part which may be due to the higher market volatility of that period related to first the subprime crisis and then to the slow and sometimes shaky recovery that followed the 2008 crisis (one can recall the 2009-2010 euro crisis and the subsequent shocks related to the negotiations in regard to the fate of the debt of Greece). For the IWM dataset the three states are a little bit more balanced but it is clear that most observations have labels "2" and "3" with a smaller number of observations for the first label. 
@@ -218,9 +239,9 @@ As can be seen from the plots the model estimates there are mainly two states wi
 ```{r,echo=FALSE}
 par(mfrow=c(2,1))
 plot(postprobs_GSPC[[1]]$state, type='s', 
-     main=paste('Estimated regimes GSPC for ',2," variables"), ylab='Regime')
+     main=paste('Est. regimes GSPC for ',2," variables"), ylab='Regime')
 plot(postprobs[[1]]$state, type='s', 
-     main=paste('Estimated regimes IWM for a model with ',2," variables"), ylab='Regime')
+     main=paste('Est. regimes IWM for a model with ',2," variables"), ylab='Regime')
 ```
 
 The plot above shows the predictions of the two states Hidden Markov Chain model. After a period of relatively calmness the model changes between states faster and with a higher frequency. After that there is another period of calmness related to the years around 2015 that can be explained by the improving of the economic conditions and the increase in speed of the global economy. The results are similar to both data sets (it must be noted that the labeling of the observations may differ between the two data sets, so in comparing them we looked if observations that are put under one label for one dataset are put under one label fo the other dataset notwithstanding the number assigned to the label).
