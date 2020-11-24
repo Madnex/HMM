@@ -55,7 +55,7 @@ trueregimes <-c(rep(1,days[1]), rep(2,days[2]), rep(1,days[3]),
 returns <-c( marketbull1, marketbear2, marketbull3, marketbear4, marketbull5)
 ```
 
-In the code above after simulating the five time periods we pasted them together in the returns variable. We also created a variable that represents the true states of the Markpv Chain. The result was the following sequence of returns that resembles a plot of returns that exist on some real financial markets around the world:
+In the code above after simulating the five time periods we pasted them together in the returns variable. We also created a variable that represents the true states of the Markov Chain. The result was the following sequence of returns that resembles a plot of returns that exist on some real financial markets around the world:
 
 ```{r,echo=FALSE}
 plot(returns, type="l", ylab="Returns", main = "Returns over time")
@@ -67,13 +67,13 @@ plot(returns, type="l", ylab="Returns", main = "Returns over time")
 
 In this sub-section we will create and fit a HMM model, plot the posterior probabilities and compare them to the true states of the model.
 
-```{r,echo=TRUE,results='hide'}
+```{r,echo=TRUE}
 hmm <- depmix(returns ~ 1, family = gaussian(), nstates = 2,
               data=data.frame(returns=returns)) # we create the HMM model
 hmmfit <- fit(hmm, verbose = FALSE) # we fit the model
 postprobs <- posterior(hmmfit) # we compute the posterior probabilities
 ```
-As can be seen from the output above the model converged after 22 iterations. The plot bellow shows that the model estimated quite well the state of the market. We must also say that the model is labeling the states in a different way that they were labeled in the "trueregimes" data so we had to re-label them.
+As can be seen from the output above the model converged after 22 iterations. The plot bellow shows that the model estimated quite well the state of the market. We must also say that the model is labeling the states in a different way than they were labeled in the "trueregimes" data so we had to re-label them.
 
 ```{r,echo=FALSE}
 # re-labeling of the states
@@ -220,7 +220,7 @@ BIC_IWM <- suppressWarnings(sapply(hmmfit_IWM, BIC))
 ```
 
 ```{r echo=FALSE}
-out <- rbind(AIC_GSPC, BIC_GSPC, AIC_IWM, AIC_IWM)
+out <- rbind(AIC_GSPC, BIC_GSPC, AIC_IWM, BIC_IWM)
 colnames(out) <- c("2-states", "3-states")
 out
 ```
